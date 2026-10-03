@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -65,6 +66,17 @@ public partial class ProbeRowViewModel : ObservableObject
     public void AddSample(PingSample sample)
     {
         Series.Add(sample);
+        RefreshStats();
+        SeriesUpdated?.Invoke();
+    }
+
+    /// <summary>
+    /// Merges samples restored from outside the live probe loop (log history) and refreshes the row once.
+    /// </summary>
+    public void MergeSamples(IReadOnlyList<PingSample> samples)
+    {
+        if (samples.Count == 0 || Series.Merge(samples) == 0)
+            return;
         RefreshStats();
         SeriesUpdated?.Invoke();
     }

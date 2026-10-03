@@ -29,28 +29,67 @@ public sealed class SampleSeries
     {
         lock (_gate)
         {
-            _samples.Add(sample);
-
-            if (sample.RttMs is double rtt)
-            {
-                _received++;
-                _sum += rtt;
-                if (double.IsNaN(_min) || rtt < _min) _min = rtt;
-                if (double.IsNaN(_max) || rtt > _max) _max = rtt;
-            }
-            else
-            {
-                _lost++;
-            }
-
-            // Trim oldest samples once we exceed the cap. Running stats intentionally
-            // reflect the whole session, not just the retained window.
-            if (_samples.Count > _maxSamples)
-            {
-                int remove = _samples.Count - _maxSamples;
-                _samples.RemoveRange(0, remove);
-            }
+            Add_NoLock(sample);
+            Trim_NoLock();
         }
+    }
+
+    /// <summary>
+    /// Inserts samples in timestamp order, skipping any timestamp already stored.
+    /// Returns the number of samples actually added. Running stats include the new samples.
+    /// </summary>
+    public int Merge(IEnumerable<PingSample> samples)
+    {
+        lock (_gate)
+        {
+            var seen = new HashSet<DateTime>(_samples.Count);
+            foreach (PingSample existing in _samples)
+                seen.Add(existing.TimestampUtc);
+
+            int added = 0;
+            foreach (PingSample sample in samples)
+            {
+                if (!seen.Add(sample.TimestampUtc))
+                    continue;
+                Add_NoLock(sample);
+                added++;
+            }
+
+            if (added == 0)
+                return 0;
+
+            _samples.Sort(static (a, b) => a.TimestampUtc.CompareTo(b.TimestampUtc));
+            Trim_NoLock();
+            return added;
+        }
+    }
+
+    private void Add_NoLock(PingSample sample)
+    {
+        _samples.Add(sample);
+
+        if (sample.RttMs is double rtt)
+        {
+            _received++;
+            _sum += rtt;
+            if (double.IsNaN(_min) || rtt < _min) _min = rtt;
+            if (double.IsNaN(_max) || rtt > _max) _max = rtt;
+        }
+        else
+        {
+            _lost++;
+        }
+    }
+
+    private void Trim_NoLock()
+    {
+        // Trim oldest samples once we exceed the cap. Running stats intentionally
+        // reflect the whole session, not just the retained window.
+        if (_samples.Count <= _maxSamples)
+            return;
+
+        int remove = _samples.Count - _maxSamples;
+        _samples.RemoveRange(0, remove);
     }
 
     public SeriesStatistics Snapshot()

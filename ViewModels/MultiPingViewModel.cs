@@ -95,6 +95,177 @@ public partial class MultiPingViewModel : MonitorViewModelBase
         }
     }
 
+    /// <summary>
+    /// Fills each destination's chart with samples from existing MultiPing logs that fall inside the
+    /// current plot window, so a new run does not start from an empty graph.
+    /// </summary>
+    protected override async Task OnStartedAsync(CancellationToken ct)
+    {
+        try
+        {
+            await LoadLoggedHistoryAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Restoring chart history is best-effort; probing continues either way.
+        }
+    }
+
+    private async Task LoadLoggedHistoryAsync(CancellationToken ct)
+    {
+        ProbeRowViewModel[] rows = Rows.ToArray();
+        if (rows.Length == 0)
+            return;
+
+        DateTime endUtc = DateTime.UtcNow;
+        DateTime startUtc = endUtc.AddMinutes(-Math.Max(0, SampleWindowMinutes));
+        string directory = LogDirectory;
+
+        Task<Dictionary<string, List<PingSample>>> readTask = Task.Run(
+            () => LogService.ReadMultiPingSamples(directory, startUtc, endUtc), ct);
+        Task<Dictionary<ProbeRowViewModel, HashSet<string>>> aliasTask = ResolveRowAliasesAsync(rows, ct);
+        await Task.WhenAll(readTask, aliasTask);
+
+        Dictionary<string, List<PingSample>> byAddress = await readTask;
+        if (byAddress.Count == 0 || ct.IsCancellationRequested || !IsRunning)
+            return;
+
+        Dictionary<ProbeRowViewModel, HashSet<string>> aliases = await aliasTask;
+        void Apply()
+        {
+            if (ct.IsCancellationRequested || !IsRunning)
+                return;
+            ApplyLoggedHistory(rows, aliases, byAddress);
+        }
+
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            Apply();
+        else
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(Apply);
+    }
+
+    private async Task<Dictionary<ProbeRowViewModel, HashSet<string>>> ResolveRowAliasesAsync(
+        ProbeRowViewModel[] rows, CancellationToken ct)
+    {
+        (ProbeRowViewModel Row, HashSet<string> Names)[] resolved =
+            await Task.WhenAll(rows.Select(row => ResolveOneAsync(row, ct)));
+
+        var map = new Dictionary<ProbeRowViewModel, HashSet<string>>(resolved.Length);
+        foreach ((ProbeRowViewModel row, HashSet<string> names) in resolved)
+            map[row] = names;
+        return map;
+    }
+
+    private async Task<(ProbeRowViewModel Row, HashSet<string> Names)> ResolveOneAsync(
+        ProbeRowViewModel row, CancellationToken ct)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddAlias(names, row.Host);
+        AddAlias(names, row.IpAddress);
+
+        // Logs store the address that answered, which is the resolved IP once a probe succeeds.
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(2));
+            var ip = await Ping.ResolveAsync(row.Host, timeout.Token).ConfigureAwait(false);
+            if (ip is not null)
+                AddAlias(names, ip.ToString());
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // DNS is only a hint for matching; the host string itself still matches.
+        }
+
+        return (row, names);
+    }
+
+    private static void AddAlias(HashSet<string> names, string value)
+    {
+        value = value.Trim();
+        if (value.Length == 0 || value == "*")
+            return;
+        names.Add(value);
+    }
+
+    private void ApplyLoggedHistory(
+        ProbeRowViewModel[] rows,
+        Dictionary<ProbeRowViewModel, HashSet<string>> aliases,
+        Dictionary<string, List<PingSample>> byAddress)
+    {
+        // The log line is stamped when the round is written, a moment after the in-memory sample.
+        TimeSpan skew = TimeSpan.FromSeconds(2);
+        bool any = false;
+        foreach (ProbeRowViewModel row in rows)
+        {
+            if (!Rows.Contains(row) || !aliases.TryGetValue(row, out HashSet<string>? names) || names is null)
+                continue;
+
+            List<PingSample> selected = SelectSamples(row, names, byAddress, skew);
+            if (selected.Count == 0)
+                continue;
+
+            row.MergeSamples(selected);
+            any = true;
+        }
+
+        if (any)
+            UpdateTotalMinutes();
+    }
+
+    private static List<PingSample> SelectSamples(
+        ProbeRowViewModel row,
+        HashSet<string> aliases,
+        Dictionary<string, List<PingSample>> byAddress,
+        TimeSpan skew)
+    {
+        (DateTime Oldest, DateTime Newest)? extent = row.Series.Extent();
+        var selected = new List<PingSample>();
+        foreach ((string address, List<PingSample> samples) in byAddress)
+        {
+            if (!AddressMatches(aliases, address))
+                continue;
+
+            foreach (PingSample sample in samples)
+            {
+                // This process already holds the probes it took. Skip that span so a stop/start
+                // does not plot the same round twice (log time sits just after the sample time).
+                if (extent is { } known
+                    && sample.TimestampUtc >= known.Oldest
+                    && sample.TimestampUtc <= known.Newest + skew)
+                    continue;
+
+                selected.Add(sample);
+            }
+        }
+
+        return selected;
+    }
+
+    private static bool AddressMatches(HashSet<string> aliases, string logged)
+    {
+        if (logged.Length == 0 || logged == "*")
+            return false;
+        if (aliases.Contains(logged))
+            return true;
+
+        // Longer names are cut to the fixed address column, so a full-width value may be a prefix.
+        if (logged.Length < LogService.AddressColumnWidth)
+            return false;
+
+        foreach (string alias in aliases)
+        {
+            if (alias.Length > logged.Length && alias.StartsWith(logged, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
     protected override async Task RunRoundAsync(CancellationToken ct)
     {
         ProbeRowViewModel[] rows = Rows.ToArray();

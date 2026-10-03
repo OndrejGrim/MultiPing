@@ -317,84 +317,152 @@ public abstract partial class MonitorViewModelBase : ObservableObject
 
     private const int ProgressTickMs = 200;
 
+    /// <summary>
+    /// Invoked when a run begins, before the first probe round. The countdown to that round runs in
+    /// parallel; the round itself waits until this task finishes. The default implementation does nothing.
+    /// </summary>
+    protected virtual Task OnStartedAsync(CancellationToken ct) => Task.CompletedTask;
+
+    /// <summary>Directory log files are written to and read back from.</summary>
+    protected string LogDirectory =>
+        string.IsNullOrWhiteSpace(Settings.Logging.LogDirectory)
+            ? ConfigService.DefaultLogDirectory
+            : Settings.Logging.LogDirectory;
+
     private async Task RunLoopAsync(CancellationToken ct)
     {
+        // History restore runs alongside the first countdown so the charts can fill before the first probe.
+        Task historyTask;
+        try
+        {
+            historyTask = OnStartedAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Error: " + ex.Message;
+            historyTask = Task.CompletedTask;
+        }
+
+        bool historyDone = false;
         DateTime nextFireTime = DateTime.UtcNow.AddMilliseconds(Settings.General.PingIntervalMs);
         CancellationTokenSource? currentRoundCts = null;
 
-        while (!ct.IsCancellationRequested)
+        try
         {
-            // Wait until next scheduled fire time, ticking the countdown text for the indicator pill.
             while (!ct.IsCancellationRequested)
             {
-                double remainingMs = (nextFireTime - DateTime.UtcNow).TotalMilliseconds;
-                if (remainingMs <= 0) break;
+                // Wait until next scheduled fire time, ticking the countdown text for the indicator pill.
+                while (!ct.IsCancellationRequested)
+                {
+                    double remainingMs = (nextFireTime - DateTime.UtcNow).TotalMilliseconds;
+                    if (remainingMs <= 0) break;
 
-                ProbeIndicatorText = Math.Ceiling(remainingMs / 1000.0).ToString(CultureInfo.InvariantCulture) + "s";
+                    ProbeIndicatorText = Math.Ceiling(remainingMs / 1000.0).ToString(CultureInfo.InvariantCulture) + "s";
 
+                    try
+                    {
+                        await Task.Delay((int)Math.Min(remainingMs, ProgressTickMs), ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                }
+
+                if (ct.IsCancellationRequested) break;
+
+                if (!historyDone)
+                {
+                    historyDone = true;
+                    try
+                    {
+                        await historyTask;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusText = "Error: " + ex.Message;
+                    }
+
+                    if (ct.IsCancellationRequested) break;
+                }
+
+                // Fire time has arrived: cancel any in-flight round and start new one
+                currentRoundCts?.Cancel();
+                currentRoundCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+                IsProbing = true;
                 try
                 {
-                    await Task.Delay((int)Math.Min(remainingMs, ProgressTickMs), ct);
+                    await RunRoundAsync(currentRoundCts.Token);
                 }
                 catch (OperationCanceledException)
                 {
-                    break;
+                    // Round was aborted (either by next interval or overall stop); timeouts already marked
                 }
+                catch (Exception ex)
+                {
+                    StatusText = "Error: " + ex.Message;
+                }
+                finally
+                {
+                    IsProbing = false;
+                    currentRoundCts?.Dispose();
+                    currentRoundCts = null;
+                }
+
+                if (Log.IsOpen)
+                    Log.WriteRound(DateTime.Now, Rows.Select(r => r.ToLogEntry()));
+
+                UpdateTotalMinutes();
+                RoundCompleted?.Invoke();
+
+                // Schedule next round at fixed wall-clock interval
+                nextFireTime = nextFireTime.AddMilliseconds(Settings.General.PingIntervalMs);
             }
-
-            if (ct.IsCancellationRequested) break;
-
-            // Fire time has arrived: cancel any in-flight round and start new one
-            currentRoundCts?.Cancel();
-            currentRoundCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-
-            IsProbing = true;
-            try
+        }
+        finally
+        {
+            // Observe the history task when the run is cancelled before the first probe, so a fault
+            // is not left unobserved. Apply is skipped once the run token is cancelled.
+            if (!historyDone)
             {
-                await RunRoundAsync(currentRoundCts.Token);
+                try { await historyTask; }
+                catch { /* best effort */ }
             }
-            catch (OperationCanceledException)
-            {
-                // Round was aborted (either by next interval or overall stop); timeouts already marked
-            }
-            catch (Exception ex)
-            {
-                StatusText = "Error: " + ex.Message;
-            }
-            finally
-            {
-                IsProbing = false;
-                currentRoundCts?.Dispose();
-                currentRoundCts = null;
-            }
-
-            if (Log.IsOpen)
-                Log.WriteRound(DateTime.Now, Rows.Select(r => r.ToLogEntry()));
-
-            UpdateTotalMinutes();
-            RoundCompleted?.Invoke();
-
-            // Schedule next round at fixed wall-clock interval
-            nextFireTime = nextFireTime.AddMilliseconds(Settings.General.PingIntervalMs);
         }
     }
 
     private void OpenLog()
     {
-        string dir = string.IsNullOrWhiteSpace(Settings.Logging.LogDirectory)
-            ? ConfigService.DefaultLogDirectory
-            : Settings.Logging.LogDirectory;
-        Log.Open(Mode, dir, DateTime.Now);
+        Log.Open(Mode, LogDirectory, DateTime.Now);
         StatusText = Log.CurrentPath is { } p ? "Logging to " + p : StatusText;
     }
 
     // --- Scrolling of the time-series plots -------------------------------------------------
 
-    /// <summary>Every row's series shares the same oldest timestamp, so any one row's Extent() gives the total span.</summary>
-    private void UpdateTotalMinutes()
+    /// <summary>Span from the oldest sample still held by any row to now. Drives the timeline slider.</summary>
+    protected void UpdateTotalMinutes()
     {
-        (DateTime Oldest, DateTime Newest)? extent = Rows.Count > 0 ? Rows[0].Series.Extent() : null;
-        TotalMinutes = extent is { } e ? Math.Max(0, (DateTime.UtcNow - e.Oldest).TotalMinutes) : 0;
+        DateTime? oldest = null;
+        foreach (ProbeRowViewModel row in Rows)
+        {
+            if (row.Series.Extent() is not { } extent)
+                continue;
+            if (oldest is null || extent.Oldest < oldest)
+                oldest = extent.Oldest;
+        }
+
+        TotalMinutes = oldest is DateTime value
+            ? Math.Max(0, (DateTime.UtcNow - value).TotalMinutes)
+            : 0;
     }
 
     [RelayCommand]
@@ -418,9 +486,7 @@ public abstract partial class MonitorViewModelBase : ObservableObject
     [RelayCommand]
     private void OpenLogFolder()
     {
-        string dir = string.IsNullOrWhiteSpace(Settings.Logging.LogDirectory)
-            ? ConfigService.DefaultLogDirectory
-            : Settings.Logging.LogDirectory;
+        string dir = LogDirectory;
         try
         {
             Directory.CreateDirectory(dir);

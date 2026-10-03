@@ -83,7 +83,7 @@ MultiPing monitors a list of destinations in parallel.
 
 1. Enter a hostname or IP address in **Add target**.
 2. Press **Enter** or select **Add**.
-3. Select **Start** to begin monitoring every configured destination.
+3. Select **Start** to begin monitoring every configured destination. Charts for the current plot window fill from existing MultiPing logs, so recent history is visible immediately.
 4. Select a destination to view its periodically refreshed traceroute in the upper-right panel.
 5. Select **Remove** to remove the currently selected destination.
 
@@ -160,6 +160,8 @@ Timestamp  Hop/Dest  IP Address              RTT      Min      Max      Avg    P
 ```
 
 Stopping monitoring or disabling **Log to disk** closes the active file. Use **File > Open Log Folder** to open the configured log directory.
+
+When a MultiPing run starts, the application reads `multiping_*.log` files from that folder and loads every sample that falls inside the current plot window into the matching destination's chart. PlotPing logs are not used. Hostnames are matched to the logged address directly and, when a probe had already resolved, by DNS.
 
 ## Configuration Files
 
