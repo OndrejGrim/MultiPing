@@ -5,7 +5,7 @@
         x:DataType="vm:OptionsViewModel"
         Title="Options"
         Icon="/Assets/logo.ico"
-        Width="480" Height="400"
+        Width="530" Height="400"
         CanResize="False"
         WindowStartupLocation="CenterOwner">
 
@@ -47,6 +47,15 @@
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Probe Timeout (ms):" VerticalAlignment="Center" Margin="0,10,0,0" />
             <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding PingTimeoutMs}" Minimum="100" Maximum="10000" Increment="500" Width="140" HorizontalAlignment="Left" Margin="0,10,0,0" />
           </Grid>
+        </StackPanel>
+      </TabItem>
+
+      <!-- MultiPing Tab -->
+      <TabItem Header="MultiPing">
+        <StackPanel Spacing="12" Margin="8,12">
+          <CheckBox Content="Remember plot selection and restore it on startup"
+                    IsChecked="{Binding RememberPlotSelection}"
+                    ToolTip.Tip="Saves which MultiPing destinations have their plot enabled so those charts are shown immediately after the application starts" />
         </StackPanel>
       </TabItem>
 

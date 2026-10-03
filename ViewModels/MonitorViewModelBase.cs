@@ -169,7 +169,17 @@ public abstract partial class MonitorViewModelBase : ObservableObject
         {
             PlottedRows.Remove(r);
         }
+
+        if (Settings.RememberPlotSelection)
+            OnRowPlotEnabledChanged(r);
     }
+
+    /// <summary>
+    /// Hook invoked after a row's plot toggle changes, so derived classes can persist the selection.
+    /// Only called when <see cref="AppConfig.RememberPlotSelection"/> is enabled. MultiPing uses this
+    /// to remember which destinations show a chart; PlotPing does not persist plot toggles.
+    /// </summary>
+    protected virtual void OnRowPlotEnabledChanged(ProbeRowViewModel row) { }
 
     /// <summary>Inserts a row into <see cref="PlottedRows"/> so it keeps the same order as <see cref="Rows"/>.</summary>
     private void InsertPlotted(ProbeRowViewModel r)

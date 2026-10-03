@@ -105,7 +105,7 @@ Scrolling changes only the displayed time range. It does not discard collected s
 
 ## Options
 
-Open **Options > Options** to configure application-wide and traceroute settings.
+Open **Options > Options** to configure application-wide, MultiPing, and traceroute settings.
 
 ### General
 
@@ -115,6 +115,12 @@ Open **Options > Options** to configure application-wide and traceroute settings
 | Ping Interval | Time between complete probe rounds | 5 seconds |
 | Plot Window | Default visible chart history | 30 minutes |
 | Probe Timeout | Maximum wait for an individual ICMP response | 2000 ms |
+
+### MultiPing
+
+| Setting | Purpose | Default |
+| --- | --- | ---: |
+| Remember plot selection | Saves which MultiPing destinations have their plot enabled and restores them on startup | On |
 
 ### Traceroute
 
@@ -131,7 +137,7 @@ After the destination is found, later rounds probe the known route instead of re
 - **Custom Log Directory** overrides the default log location.
 - **Browse** selects a folder, while **Default** clears the override.
 
-Settings are saved automatically. Targets, the PlotPing target, recent hosts, and window preferences are restored when the application starts.
+Settings are saved automatically. Targets, the PlotPing target, recent hosts, the MultiPing plot selection, and window preferences are restored when the application starts.
 
 ## Logs
 

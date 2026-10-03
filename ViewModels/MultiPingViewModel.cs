@@ -54,8 +54,18 @@ public partial class MultiPingViewModel : MonitorViewModelBase
     public MultiPingViewModel(AppConfig settings, ConfigService configSvc, PingService ping, TracerouteService trace, LogService log)
         : base(settings, configSvc, ping, trace, log)
     {
+        // Restore the saved per-target plot toggles so the charts are visible right after startup.
+        // PlotEnabled is set before the row is added so the base class picks it up in one step.
+        var plotted = settings.RememberPlotSelection
+            ? new HashSet<string>(settings.MultiPingPlotTargets, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (string host in settings.MultiPingTargets)
-            Rows.Add(CreateRow(host));
+        {
+            ProbeRowViewModel row = CreateRow(host);
+            row.PlotEnabled = plotted.Contains(host);
+            Rows.Add(row);
+        }
     }
 
     public override AppMode Mode => AppMode.MultiPing;
@@ -263,9 +273,14 @@ public partial class MultiPingViewModel : MonitorViewModelBase
         }
     }
 
+    /// <summary>Persist the plot toggle immediately so a crash or forced close doesn't lose it.</summary>
+    protected override void OnRowPlotEnabledChanged(ProbeRowViewModel row) => SaveSettings();
+
     public override void SaveSettings()
     {
         Settings.MultiPingTargets = Rows.Select(r => r.Host).ToList();
+        if (Settings.RememberPlotSelection)
+            Settings.MultiPingPlotTargets = Rows.Where(r => r.PlotEnabled).Select(r => r.Host).ToList();
         base.SaveSettings();
     }
 }

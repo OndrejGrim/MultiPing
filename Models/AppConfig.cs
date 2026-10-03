@@ -18,6 +18,15 @@ public sealed class AppConfig
     /// <summary>Configured destination IPs / hostnames for MultiPing mode.</summary>
     public List<string> MultiPingTargets { get; set; } = new() { "8.8.8.8", "1.1.1.1" };
 
+    /// <summary>
+    /// When true, MultiPing remembers which destinations have their plot enabled and restores that
+    /// selection on startup so the time-series charts appear immediately.
+    /// </summary>
+    public bool RememberPlotSelection { get; set; } = true;
+
+    /// <summary>MultiPing destinations whose time-series plot was enabled when last saved.</summary>
+    public List<string> MultiPingPlotTargets { get; set; } = new();
+
     /// <summary>Displayed plot window in minutes (default 30).</summary>
     public double SampleWindowMinutes { get; set; } = 30;
 
