@@ -56,6 +56,9 @@
           <CheckBox Content="Remember plot selection and restore it on startup"
                     IsChecked="{Binding RememberPlotSelection}"
                     ToolTip.Tip="Saves which MultiPing destinations have their plot enabled so those charts are shown immediately after the application starts" />
+          <CheckBox Content="Start pinging automatically on startup"
+                    IsChecked="{Binding AutoStartMultiPing}"
+                    ToolTip.Tip="Begins probing the configured MultiPing destinations as soon as the application starts, without pressing Start" />
         </StackPanel>
       </TabItem>
 

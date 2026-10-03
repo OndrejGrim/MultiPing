@@ -30,7 +30,13 @@ public partial class App : Application
                 ? new MultiPingViewModel(settings, configSvc, ping, trace, log)
                 : new PlotPingViewModel(settings, configSvc, ping, trace, log);
 
-            desktop.MainWindow = new MainWindow { DataContext = vm };
+            var mainWindow = new MainWindow { DataContext = vm };
+            desktop.MainWindow = mainWindow;
+
+            // Optionally kick off the probe loop as soon as the MultiPing window is on screen, so the
+            // user doesn't have to press Start after every launch.
+            if (vm is MultiPingViewModel && settings.AutoStartMultiPing)
+                mainWindow.Opened += (_, _) => vm.Start();
         }
 
         base.OnFrameworkInitializationCompleted();

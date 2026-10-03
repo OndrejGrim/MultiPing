@@ -121,6 +121,7 @@ Open **Options > Options** to configure application-wide, MultiPing, and tracero
 | Setting | Purpose | Default |
 | --- | --- | ---: |
 | Remember plot selection | Saves which MultiPing destinations have their plot enabled and restores them on startup | On |
+| Start pinging automatically on startup | Begins probing the configured MultiPing destinations immediately after the application starts, without pressing Start | Off |
 
 ### Traceroute
 

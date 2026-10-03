@@ -28,6 +28,7 @@ public partial class OptionsViewModel : ObservableObject
     [ObservableProperty] private SampleWindowOption? _selectedSampleWindow;
     [ObservableProperty] private bool _logByDefault;
     [ObservableProperty] private bool _rememberPlotSelection;
+    [ObservableProperty] private bool _autoStartMultiPing;
     [ObservableProperty] private string _logDirectory = string.Empty;
     [ObservableProperty] private AppModeOption _selectedDefaultMode;
 
@@ -53,6 +54,7 @@ public partial class OptionsViewModel : ObservableObject
         _selectedSampleWindow = GetOrCreateSampleWindowOption(_sampleWindowMinutes);
         _logByDefault = config.LogByDefault;
         _rememberPlotSelection = config.RememberPlotSelection;
+        _autoStartMultiPing = config.AutoStartMultiPing;
         _logDirectory = config.LogDirectory ?? string.Empty;
         _selectedDefaultMode = AppModeOption.For(config.DefaultMode);
     }
@@ -110,6 +112,7 @@ public partial class OptionsViewModel : ObservableObject
         _config.SampleWindowMinutes = Math.Max(1, SampleWindowMinutes);
         _config.LogByDefault = LogByDefault;
         _config.RememberPlotSelection = RememberPlotSelection;
+        _config.AutoStartMultiPing = AutoStartMultiPing;
         _config.LogDirectory = LogDirectory.Trim();
         _config.DefaultMode = SelectedDefaultMode.Mode;
 

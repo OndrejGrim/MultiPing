@@ -27,6 +27,12 @@ public sealed class AppConfig
     /// <summary>MultiPing destinations whose time-series plot was enabled when last saved.</summary>
     public List<string> MultiPingPlotTargets { get; set; } = new();
 
+    /// <summary>
+    /// When true, a MultiPing window begins probing its configured destinations immediately after
+    /// the application starts, without waiting for the user to press Start.
+    /// </summary>
+    public bool AutoStartMultiPing { get; set; }
+
     /// <summary>Displayed plot window in minutes (default 30).</summary>
     public double SampleWindowMinutes { get; set; } = 30;
 
