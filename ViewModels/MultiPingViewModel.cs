@@ -56,11 +56,11 @@ public partial class MultiPingViewModel : MonitorViewModelBase
     {
         // Restore the saved per-target plot toggles so the charts are visible right after startup.
         // PlotEnabled is set before the row is added so the base class picks it up in one step.
-        var plotted = settings.RememberPlotSelection
-            ? new HashSet<string>(settings.MultiPingPlotTargets, StringComparer.OrdinalIgnoreCase)
+        var plotted = settings.MultiPing.RememberPlotSelection
+            ? new HashSet<string>(settings.MultiPing.PlotTargets, StringComparer.OrdinalIgnoreCase)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string host in settings.MultiPingTargets)
+        foreach (string host in settings.MultiPing.Targets)
         {
             ProbeRowViewModel row = CreateRow(host);
             row.PlotEnabled = plotted.Contains(host);
@@ -100,7 +100,7 @@ public partial class MultiPingViewModel : MonitorViewModelBase
         ProbeRowViewModel[] rows = Rows.ToArray();
         if (rows.Length == 0) return;
 
-        var tasks = rows.Select(r => Ping.ProbeAsync(r.Host, DirectPingTtl, Settings.PingTimeoutMs, ct)).ToArray();
+        var tasks = rows.Select(r => Ping.ProbeAsync(r.Host, DirectPingTtl, Settings.General.PingTimeoutMs, ct)).ToArray();
         ProbeResult[] results = await Task.WhenAll(tasks);
 
         for (int i = 0; i < rows.Length; i++)
@@ -174,7 +174,7 @@ public partial class MultiPingViewModel : MonitorViewModelBase
             IReadOnlyList<HopResult>? hops = null;
             try
             {
-                hops = await Trace.RunRoundAsync(host, Settings.MaxHops, Settings.PingTimeoutMs, Settings.LookAheadLimit, ct);
+                hops = await Trace.RunRoundAsync(host, Settings.Traceroute.MaxHops, Settings.General.PingTimeoutMs, Settings.Traceroute.LookAheadLimit, ct);
             }
             catch (OperationCanceledException)
             {
@@ -278,9 +278,9 @@ public partial class MultiPingViewModel : MonitorViewModelBase
 
     public override void SaveSettings()
     {
-        Settings.MultiPingTargets = Rows.Select(r => r.Host).ToList();
-        if (Settings.RememberPlotSelection)
-            Settings.MultiPingPlotTargets = Rows.Where(r => r.PlotEnabled).Select(r => r.Host).ToList();
+        Settings.MultiPing.Targets = Rows.Select(r => r.Host).ToList();
+        if (Settings.MultiPing.RememberPlotSelection)
+            Settings.MultiPing.PlotTargets = Rows.Where(r => r.PlotEnabled).Select(r => r.Host).ToList();
         base.SaveSettings();
     }
 }

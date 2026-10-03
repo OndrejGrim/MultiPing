@@ -169,7 +169,16 @@ MultiPing stores its settings under the current user's application-data director
 %APPDATA%\MultiPing\config.json
 ```
 
-The JSON file contains targets, probe settings, traceroute settings, logging preferences, and up to 15 recently used hosts. If the file is missing or unreadable, built-in defaults are used.
+The JSON file is split into sections that mirror the tabs of the Options dialog:
+
+| Section | Contents |
+| --- | --- |
+| `General` | Default mode, ping interval, plot window, probe timeout, up to 15 recently used hosts |
+| `MultiPing` | Remember plot selection, auto start, configured targets, plot-enabled targets |
+| `Traceroute` | Max hops, look-ahead limit, PlotPing target |
+| `Logging` | Log by default, custom log directory |
+
+Only known fields are read. Unknown fields and the legacy flat layout are discarded, and the file is rewritten in the current layout on startup. If the file is missing or unreadable, built-in defaults are used.
 
 ## Building from Source
 

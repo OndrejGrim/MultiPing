@@ -24,7 +24,7 @@ public partial class App : Application
             var log = new LogService();
 
             // Explicit --mode wins; otherwise fall back to the user's configured default mode.
-            AppMode mode = Program.StartupMode ?? settings.DefaultMode;
+            AppMode mode = Program.StartupMode ?? settings.General.DefaultMode;
 
             MonitorViewModelBase vm = mode == AppMode.MultiPing
                 ? new MultiPingViewModel(settings, configSvc, ping, trace, log)
@@ -35,7 +35,7 @@ public partial class App : Application
 
             // Optionally kick off the probe loop as soon as the MultiPing window is on screen, so the
             // user doesn't have to press Start after every launch.
-            if (vm is MultiPingViewModel && settings.AutoStartMultiPing)
+            if (vm is MultiPingViewModel && settings.MultiPing.AutoStart)
                 mainWindow.Opened += (_, _) => vm.Start();
         }
 

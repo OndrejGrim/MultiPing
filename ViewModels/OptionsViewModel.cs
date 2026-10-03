@@ -46,17 +46,17 @@ public partial class OptionsViewModel : ObservableObject
         _activeMonitor = activeMonitor;
 
         // Populate with current configuration values
-        _pingIntervalSeconds = Math.Max(1, config.PingIntervalMs / 1000);
-        _pingTimeoutMs = config.PingTimeoutMs;
-        _maxHops = config.MaxHops;
-        _lookAheadLimit = config.LookAheadLimit;
-        _sampleWindowMinutes = Math.Max(1, config.SampleWindowMinutes);
+        _pingIntervalSeconds = Math.Max(1, config.General.PingIntervalMs / 1000);
+        _pingTimeoutMs = config.General.PingTimeoutMs;
+        _maxHops = config.Traceroute.MaxHops;
+        _lookAheadLimit = config.Traceroute.LookAheadLimit;
+        _sampleWindowMinutes = Math.Max(1, config.General.SampleWindowMinutes);
         _selectedSampleWindow = GetOrCreateSampleWindowOption(_sampleWindowMinutes);
-        _logByDefault = config.LogByDefault;
-        _rememberPlotSelection = config.RememberPlotSelection;
-        _autoStartMultiPing = config.AutoStartMultiPing;
-        _logDirectory = config.LogDirectory ?? string.Empty;
-        _selectedDefaultMode = AppModeOption.For(config.DefaultMode);
+        _logByDefault = config.Logging.LogByDefault;
+        _rememberPlotSelection = config.MultiPing.RememberPlotSelection;
+        _autoStartMultiPing = config.MultiPing.AutoStart;
+        _logDirectory = config.Logging.LogDirectory ?? string.Empty;
+        _selectedDefaultMode = AppModeOption.For(config.General.DefaultMode);
     }
 
     partial void OnSampleWindowMinutesChanged(double value)
@@ -105,24 +105,27 @@ public partial class OptionsViewModel : ObservableObject
     [RelayCommand]
     public void Apply()
     {
-        _config.PingIntervalMs = Math.Max(1, PingIntervalSeconds) * 1000;
-        _config.PingTimeoutMs = Math.Max(100, PingTimeoutMs);
-        _config.MaxHops = Math.Clamp(MaxHops, 1, 128);
-        _config.LookAheadLimit = Math.Clamp(LookAheadLimit, 1, 5);
-        _config.SampleWindowMinutes = Math.Max(1, SampleWindowMinutes);
-        _config.LogByDefault = LogByDefault;
-        _config.RememberPlotSelection = RememberPlotSelection;
-        _config.AutoStartMultiPing = AutoStartMultiPing;
-        _config.LogDirectory = LogDirectory.Trim();
-        _config.DefaultMode = SelectedDefaultMode.Mode;
+        _config.General.DefaultMode = SelectedDefaultMode.Mode;
+        _config.General.PingIntervalMs = Math.Max(1, PingIntervalSeconds) * 1000;
+        _config.General.SampleWindowMinutes = Math.Max(1, SampleWindowMinutes);
+        _config.General.PingTimeoutMs = Math.Max(100, PingTimeoutMs);
+
+        _config.MultiPing.RememberPlotSelection = RememberPlotSelection;
+        _config.MultiPing.AutoStart = AutoStartMultiPing;
+
+        _config.Traceroute.MaxHops = Math.Clamp(MaxHops, 1, 128);
+        _config.Traceroute.LookAheadLimit = Math.Clamp(LookAheadLimit, 1, 5);
+
+        _config.Logging.LogByDefault = LogByDefault;
+        _config.Logging.LogDirectory = LogDirectory.Trim();
 
         _configSvc.Save(_config);
 
         if (_activeMonitor is not null)
         {
-            _activeMonitor.PingIntervalMs = _config.PingIntervalMs;
-            _activeMonitor.SampleWindowMinutes = _config.SampleWindowMinutes;
-            _activeMonitor.LogByDefault = _config.LogByDefault;
+            _activeMonitor.PingIntervalMs = _config.General.PingIntervalMs;
+            _activeMonitor.SampleWindowMinutes = _config.General.SampleWindowMinutes;
+            _activeMonitor.LogByDefault = _config.Logging.LogByDefault;
         }
     }
 

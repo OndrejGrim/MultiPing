@@ -42,16 +42,16 @@ public abstract partial class MonitorViewModelBase : ObservableObject
         Trace = trace;
         Log = log;
 
-        _sampleWindowMinutes = settings.SampleWindowMinutes;
-        _loggingEnabled = settings.LogByDefault;
-        _logByDefault = settings.LogByDefault;
-        _pingIntervalMs = settings.PingIntervalMs;
+        _sampleWindowMinutes = settings.General.SampleWindowMinutes;
+        _loggingEnabled = settings.Logging.LogByDefault;
+        _logByDefault = settings.Logging.LogByDefault;
+        _pingIntervalMs = settings.General.PingIntervalMs;
 
         SelectedSampleWindow = SampleWindowOption.Presets.FirstOrDefault(option =>
-            Math.Abs(option.Minutes - settings.SampleWindowMinutes) < 0.0001)
-            ?? SampleWindowOption.ForMinutes(settings.SampleWindowMinutes);
+            Math.Abs(option.Minutes - settings.General.SampleWindowMinutes) < 0.0001)
+            ?? SampleWindowOption.ForMinutes(settings.General.SampleWindowMinutes);
 
-        foreach (string host in settings.RecentHosts)
+        foreach (string host in settings.General.RecentHosts)
             RecentHosts.Add(host);
 
         Rows.CollectionChanged += OnRowsCollectionChanged;
@@ -79,7 +79,7 @@ public abstract partial class MonitorViewModelBase : ObservableObject
         while (RecentHosts.Count > MaxRecentHosts)
             RecentHosts.RemoveAt(RecentHosts.Count - 1);
 
-        Settings.RecentHosts = RecentHosts.ToList();
+        Settings.General.RecentHosts = RecentHosts.ToList();
         ConfigSvc.Save(Settings);
     }
 
@@ -95,7 +95,7 @@ public abstract partial class MonitorViewModelBase : ObservableObject
         if (SelectedSampleWindow is null || Math.Abs(SelectedSampleWindow.Minutes - value) > 0.0001)
             SelectedSampleWindow = GetOrCreateSampleWindowOption(value);
 
-        Settings.SampleWindowMinutes = value;
+        Settings.General.SampleWindowMinutes = value;
         ConfigSvc.Save(Settings);
     }
 
@@ -170,13 +170,13 @@ public abstract partial class MonitorViewModelBase : ObservableObject
             PlottedRows.Remove(r);
         }
 
-        if (Settings.RememberPlotSelection)
+        if (Settings.MultiPing.RememberPlotSelection)
             OnRowPlotEnabledChanged(r);
     }
 
     /// <summary>
     /// Hook invoked after a row's plot toggle changes, so derived classes can persist the selection.
-    /// Only called when <see cref="AppConfig.RememberPlotSelection"/> is enabled. MultiPing uses this
+    /// Only called when <see cref="MultiPingConfig.RememberPlotSelection"/> is enabled. MultiPing uses this
     /// to remember which destinations show a chart; PlotPing does not persist plot toggles.
     /// </summary>
     protected virtual void OnRowPlotEnabledChanged(ProbeRowViewModel row) { }
@@ -260,13 +260,13 @@ public abstract partial class MonitorViewModelBase : ObservableObject
     partial void OnLogByDefaultChanged(bool value)
     {
         // App-wide default is persisted immediately so all windows pick it up.
-        Settings.LogByDefault = value;
+        Settings.Logging.LogByDefault = value;
         ConfigSvc.Save(Settings);
     }
 
     partial void OnPingIntervalMsChanged(int value)
     {
-        Settings.PingIntervalMs = value;
+        Settings.General.PingIntervalMs = value;
         ConfigSvc.Save(Settings);
     }
 
@@ -319,7 +319,7 @@ public abstract partial class MonitorViewModelBase : ObservableObject
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
-        DateTime nextFireTime = DateTime.UtcNow.AddMilliseconds(Settings.PingIntervalMs);
+        DateTime nextFireTime = DateTime.UtcNow.AddMilliseconds(Settings.General.PingIntervalMs);
         CancellationTokenSource? currentRoundCts = null;
 
         while (!ct.IsCancellationRequested)
@@ -375,15 +375,15 @@ public abstract partial class MonitorViewModelBase : ObservableObject
             RoundCompleted?.Invoke();
 
             // Schedule next round at fixed wall-clock interval
-            nextFireTime = nextFireTime.AddMilliseconds(Settings.PingIntervalMs);
+            nextFireTime = nextFireTime.AddMilliseconds(Settings.General.PingIntervalMs);
         }
     }
 
     private void OpenLog()
     {
-        string dir = string.IsNullOrWhiteSpace(Settings.LogDirectory)
+        string dir = string.IsNullOrWhiteSpace(Settings.Logging.LogDirectory)
             ? ConfigService.DefaultLogDirectory
-            : Settings.LogDirectory;
+            : Settings.Logging.LogDirectory;
         Log.Open(Mode, dir, DateTime.Now);
         StatusText = Log.CurrentPath is { } p ? "Logging to " + p : StatusText;
     }
@@ -418,9 +418,9 @@ public abstract partial class MonitorViewModelBase : ObservableObject
     [RelayCommand]
     private void OpenLogFolder()
     {
-        string dir = string.IsNullOrWhiteSpace(Settings.LogDirectory)
+        string dir = string.IsNullOrWhiteSpace(Settings.Logging.LogDirectory)
             ? ConfigService.DefaultLogDirectory
-            : Settings.LogDirectory;
+            : Settings.Logging.LogDirectory;
         try
         {
             Directory.CreateDirectory(dir);
@@ -432,7 +432,7 @@ public abstract partial class MonitorViewModelBase : ObservableObject
     /// <summary>Copies current UI state into settings and persists them. Called on window close.</summary>
     public virtual void SaveSettings()
     {
-        Settings.SampleWindowMinutes = SampleWindowMinutes;
+        Settings.General.SampleWindowMinutes = SampleWindowMinutes;
         ConfigSvc.Save(Settings);
     }
 }
