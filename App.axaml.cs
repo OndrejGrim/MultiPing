@@ -23,7 +23,10 @@ public partial class App : Application
             var trace = new TracerouteService(ping);
             var log = new LogService();
 
-            MonitorViewModelBase vm = Program.StartupMode == AppMode.MultiPing
+            // Explicit --mode wins; otherwise fall back to the user's configured default mode.
+            AppMode mode = Program.StartupMode ?? settings.DefaultMode;
+
+            MonitorViewModelBase vm = mode == AppMode.MultiPing
                 ? new MultiPingViewModel(settings, configSvc, ping, trace, log)
                 : new PlotPingViewModel(settings, configSvc, ping, trace, log);
 

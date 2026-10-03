@@ -1,10 +1,17 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace MultiPing.Models;
 
 /// <summary>Persisted application settings, serialized to JSON in the per-user AppData folder.</summary>
 public sealed class AppConfig
 {
+    /// <summary>
+    /// Mode the application starts in when no explicit <c>--mode</c> command-line argument is given.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AppMode DefaultMode { get; set; } = AppMode.PlotPing;
+
     /// <summary>Target for PlotPing (traceroute) mode.</summary>
     public string PlotPingTarget { get; set; } = "8.8.8.8";
 

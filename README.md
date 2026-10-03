@@ -52,9 +52,9 @@ Probing uses ICMP. Firewalls, routers, or destination hosts may block or rate-li
 
 ## Running the Application
 
-Run `MultiPing.exe` from a release. If no command-line mode is supplied, MultiPing starts in PlotPing mode.
+Run `MultiPing.exe` from a release. If no command-line mode is supplied, MultiPing starts in the mode selected under **Options > General > Default Mode** (PlotPing out of the box).
 
-The executable also accepts an explicit mode:
+The executable also accepts an explicit mode, which overrides the configured default:
 
 ```powershell
 .\MultiPing.exe --mode plotping
@@ -111,6 +111,7 @@ Open **Options > Options** to configure application-wide and traceroute settings
 
 | Setting | Purpose | Default |
 | --- | --- | ---: |
+| Default Mode | Mode used at startup when no `--mode` argument is given | PlotPing |
 | Ping Interval | Time between complete probe rounds | 5 seconds |
 | Plot Window | Default visible chart history | 30 minutes |
 | Probe Timeout | Maximum wait for an individual ICMP response | 2000 ms |

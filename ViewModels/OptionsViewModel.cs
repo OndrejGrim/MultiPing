@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,8 +28,11 @@ public partial class OptionsViewModel : ObservableObject
     [ObservableProperty] private SampleWindowOption? _selectedSampleWindow;
     [ObservableProperty] private bool _logByDefault;
     [ObservableProperty] private string _logDirectory = string.Empty;
+    [ObservableProperty] private AppModeOption _selectedDefaultMode;
 
     public ObservableCollection<SampleWindowOption> SampleWindowOptions { get; } = new(SampleWindowOption.Presets);
+
+    public IReadOnlyList<AppModeOption> DefaultModeOptions { get; } = AppModeOption.All;
 
     public Func<Task<string?>>? PickFolderHandler { get; set; }
     public Action? CloseAction { get; set; }
@@ -48,6 +52,7 @@ public partial class OptionsViewModel : ObservableObject
         _selectedSampleWindow = GetOrCreateSampleWindowOption(_sampleWindowMinutes);
         _logByDefault = config.LogByDefault;
         _logDirectory = config.LogDirectory ?? string.Empty;
+        _selectedDefaultMode = AppModeOption.For(config.DefaultMode);
     }
 
     partial void OnSampleWindowMinutesChanged(double value)
@@ -103,6 +108,7 @@ public partial class OptionsViewModel : ObservableObject
         _config.SampleWindowMinutes = Math.Max(1, SampleWindowMinutes);
         _config.LogByDefault = LogByDefault;
         _config.LogDirectory = LogDirectory.Trim();
+        _config.DefaultMode = SelectedDefaultMode.Mode;
 
         _configSvc.Save(_config);
 
